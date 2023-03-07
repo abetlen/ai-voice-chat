@@ -13,8 +13,6 @@ const DEFAULT_MESSAGES = [
     content:
       "You are an AI Voice Assistant you must answer user questions truthfully and politely.",
   },
-  { role: "user", content: "What is the capital of France?" },
-  { role: "assistant", content: "Paris" },
 ];
 
 function useLocalStorage(key, defaultValue) {
