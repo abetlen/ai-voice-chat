@@ -169,7 +169,7 @@ function AudioRecorder({
   );
 }
 
-function AudioTranscriber({
+function SpeechTranscriber({
   onTranscribed,
 }: {
   onTranscribed: (string) => void;
@@ -190,7 +190,7 @@ function AudioTranscriber({
   return <AudioRecorder onRecording={handleRecording} />;
 }
 
-function AudioPlayer({ text }: { text?: string }) {
+function SpeechSynthesizer({ text }: { text?: string }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
 
@@ -304,7 +304,7 @@ function Chat() {
             ref={inputRef}
             onChange={(e) => setMessage(e.target.value)}
           />
-          <AudioTranscriber
+          <SpeechTranscriber
             onTranscribed={(text) => {
               setMessage(text);
               if (inputRef.current) {
@@ -320,7 +320,154 @@ function Chat() {
             Send
           </button>
         </form>
-        <AudioPlayer text={lastAssistantMessage} />
+        <SpeechSynthesizer text={lastAssistantMessage} />
+      </div>
+    </>
+  );
+}
+
+function useVoices() {
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+
+  useEffect(() => {
+    const synth = window.speechSynthesis;
+    synth.onvoiceschanged = () => {
+      setVoices(synth.getVoices());
+    };
+  }, []);
+
+  return voices;
+}
+
+function SpeechSynthesizerNative({ text }: { text?: string }) {
+  const voices = useVoices();
+  const [voice, setVoice] = useState<SpeechSynthesisVoice | null>(null);
+
+  useEffect(() => {
+    if (voices.length > 0) {
+      const voice = voices.find((v) => v.lang === "en-US");
+      if (voice) {
+        setVoice(voice);
+      } else {
+        setVoice(null);
+      }
+    } else {
+      setVoice(null);
+    }
+  }, [voices]);
+
+  function speak() {
+    if (!text || !voice) return;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.voice = voice;
+    window.speechSynthesis.speak(utterance);
+  }
+
+  useEffect(() => {
+    speak();
+  }, [text, voice]);
+
+  return <></>;
+}
+
+const SpeechRecognition =
+  window.SpeechRecognition || window.webkitSpeechRecognition;
+
+function SpeechTranscriberNative({ onTranscribed }: { onTranscribed?: (text: string) => void }) {
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    if (SpeechRecognition) {
+      if (!enabled) {
+        return;
+      }
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.lang = "en-US";
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      recognition.onresult = (event) => {
+        if (onTranscribed) {
+          onTranscribed(
+            event.results[0][event.results[0].length - 1].transcript
+          );
+        }
+      };
+      recognition.onend = () => {
+        recognition.start();
+      };
+      recognition.onerror = (error) => {
+        console.error(error);
+      };
+      recognition.start();
+      return () => {
+        recognition.onend = null;
+        recognition.onresult = null;
+        recognition.onerror = null;
+        recognition.stop();
+      };
+    }
+  }, [enabled, onTranscribed]);
+
+  return (
+    <>
+      {!enabled ? (
+        <button
+          onClick={() => setEnabled(true)}
+          type="button"
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex justify-center items-center text-center"
+          title="Click to start recording"
+        >
+          <MicrophoneIcon className="h-5 w-5" />
+        </button>
+      ) : (
+        <button
+          onClick={() => setEnabled(false)}
+          type="button"
+          className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded flex justify-center items-center text-center"
+          title="Click to stop recording"
+        >
+          <StopIcon className="h-5 w-5" />
+        </button>
+      )}
+    </>
+  );
+}
+
+function ChatNative() {
+  const [messages, setMessages] = useLocalStorage("messages", DEFAULT_MESSAGES);
+  const [lastAssistantMessage, setLastAssistantMessage] = useState("");
+
+  function sendMessage(message) {
+    if (message === "") return;
+    const newChat = [...messages, { role: "user", content: message }];
+    setMessages(newChat);
+    completeChat(newChat).then((res) => {
+      setMessages([...newChat, { role: "assistant", content: res }]);
+      setLastAssistantMessage(res);
+    });
+  }
+
+  function reset() {
+    setMessages(DEFAULT_MESSAGES);
+  }
+
+  return (
+    <>
+      <div className="flex flex-col gap-2 grow overflow-auto">
+        <div className="flex justify-between">
+          <h1>AI Voice Chat</h1>
+          <button className="text-blue-400" onClick={reset}>
+            Reset
+          </button>
+        </div>
+        <ChatBox messages={messages} />
+        <SpeechTranscriberNative
+          onTranscribed={(text) => {
+            sendMessage(text);
+          }}
+        />
+        <SpeechSynthesizerNative text={lastAssistantMessage} />
       </div>
     </>
   );
@@ -330,8 +477,8 @@ export function App() {
   return (
     <>
       <div className="flex justify-center bg-gray-200 p-0 sm:p-8 h-full">
-        <div className="max-w-prose bg-white shadow p-2 sm:p-8 grow rounded overflow-auto flex flex-col gap-2 sm:gap-8">
-          <Chat />
+        <div className="max-w-prose bg-white p-2 sm:p-8 max-h-full rounded-lg shadow-lg flex flex-col gap-2 sm:gap-8">
+          <ChatNative />
         </div>
       </div>
     </>
