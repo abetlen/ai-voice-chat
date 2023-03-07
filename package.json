@@ -1,5 +1,5 @@
 {
-  "name": "ai-assistant",
+  "name": "ai-voice-chat",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -9,7 +9,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "parcel": "^2.8.3",
     "process": "^0.11.10"
