@@ -298,7 +298,6 @@ function Chat() {
           </button>
         </div>
         <ChatBox messages={messages} />
-        {/* <form className="flex flex-col sm:flex-row gap-2" onSubmit={sendMessage}> */}
         <form className="flex gap-2" onSubmit={sendMessage}>
           <input
             className="border border-gray-300 rounded p-2 grow outline-none appearance-none focus:ring-2 focus:ring-blue-500"
