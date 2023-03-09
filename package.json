@@ -12,6 +12,7 @@
   "license": "MIT",
   "devDependencies": {
     "@parcel/packager-raw-url": "^2.8.3",
+    "@parcel/service-worker": "^2.8.3",
     "@parcel/transformer-webmanifest": "^2.8.3",
     "parcel": "^2.8.3",
     "process": "^0.11.10"

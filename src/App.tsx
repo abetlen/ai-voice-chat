@@ -1,9 +1,4 @@
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-} from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 
 import { MicrophoneIcon, StopIcon } from "@heroicons/react/24/solid";
 
