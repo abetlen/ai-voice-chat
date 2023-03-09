@@ -1,15 +1,16 @@
 {
     "short_name": "AI Chat",
     "name": "AI Voice Chat",
+    "description": "Browser-based Conversational AI Voice Chat",
     "icons": [
         {
             "src": "favicon.svg",
-            "purpose": "maskable any",
+            "purpose": "any",
             "sizes": "any"
         }
     ],
     "start_url": ".",
     "display": "standalone",
-    "theme_color": "#000000",
+    "theme_color": "#ffffff",
     "background_color": "#ffffff"
 }
