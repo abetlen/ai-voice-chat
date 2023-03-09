@@ -458,6 +458,8 @@ function ChatNative() {
   }
 
   function reset() {
+    const shouldReset = window.confirm("Are you sure you want to clear chat?");
+    if (!shouldReset) return;
     setMessages(DEFAULT_MESSAGES);
   }
 
