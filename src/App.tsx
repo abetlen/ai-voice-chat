@@ -31,11 +31,13 @@ function useLocalStorage(key, defaultValue) {
 }
 
 function completeChat(history) {
+  const apiKey = OPENAI_API_KEY || localStorage.getItem("OPENAI_API_KEY");
+
   return fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model: "gpt-3.5-turbo",
@@ -43,7 +45,14 @@ function completeChat(history) {
     }),
   })
     .then((r) => r.json())
-    .then((r) => r.choices[0].message.content.trim());
+    .then((r) => r.choices[0].message.content.trim())
+    .catch((e) => {
+      console.error(e);
+      alert(
+        "Request to OpenAI API Failed. Please update your API key in by clicking 'Settings'."
+      );
+      return null;
+    });
 }
 
 function transcribeAudio(formData) {
@@ -450,6 +459,13 @@ function ChatNative() {
 
   function reset() {
     setMessages(DEFAULT_MESSAGES);
+  }
+
+  function settings() {
+    const apiKey = prompt("Enter your OpenAI API key. Click 'Ok' to clear key.");
+    if (apiKey === null) return;
+    localStorage.setItem("OPENAI_API_KEY", apiKey);
+    alert("API key saved!");
   }
 
   return (
