@@ -4,17 +4,20 @@
   "description": "",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "parcel src/index.html",
+    "start": "parcel --no-cache src/index.html",
     "build": "parcel build src/index.html"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@parcel/packager-raw-url": "^2.8.3",
+    "@parcel/transformer-webmanifest": "^2.8.3",
     "parcel": "^2.8.3",
     "process": "^0.11.10"
   },
   "dependencies": {
+    "@headlessui/react": "^1.7.13",
     "@heroicons/react": "^2.0.16",
     "@types/node": "^18.14.6",
     "@types/react": "^18.0.28",
