@@ -1,4 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+} from "react";
 
 import { MicrophoneIcon, StopIcon } from "@heroicons/react/24/solid";
 
@@ -11,9 +16,9 @@ const DEFAULT_MESSAGES = [
   {
     role: "system",
     content:
-      "You are a conversational voice assistant.\n"
-      + "You answer user questions truthfully and politely.\n"
-      + "Write messages phonetically to assist text-to-speech and use punctuation.\n"
+      "You are a conversational voice assistant.\n" +
+      "You answer user questions truthfully and politely.\n" +
+      "Write messages phonetically to assist text-to-speech and use punctuation.\n",
   },
 ];
 
@@ -69,19 +74,29 @@ function transcribeAudio(formData) {
     .then((data) => data.text.trim());
 }
 
+const GET_VOICES_DELAY_MS = 100;
+const PAUSE_DELAY_MS = 1000;
+
 async function speak(text: string) {
   const synth = window.speechSynthesis;
   var timeout;
   function timeoutFunction() {
-    synth.pause();
-    synth.resume();
-    timeout = setTimeout(timeoutFunction, 1000);
+    if (
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        navigator.userAgent
+      )
+    ) {
+    } else {
+      synth.pause();
+      synth.resume();
+    }
+    timeout = setTimeout(timeoutFunction, PAUSE_DELAY_MS);
   }
   return new Promise<void>((resolve) => {
     setTimeout(() => {
       const allVoices = synth.getVoices();
       synth.cancel();
-      timeout = setTimeout(timeoutFunction, 1000);
+      timeout = setTimeout(timeoutFunction, PAUSE_DELAY_MS);
       const utterance = new window.SpeechSynthesisUtterance(text);
       utterance.voice = allVoices.find((v) => v.lang === "en-US");
       utterance.onend = () => {
@@ -89,7 +104,7 @@ async function speak(text: string) {
         resolve();
       };
       synth.speak(utterance);
-    }, 100);
+    }, GET_VOICES_DELAY_MS);
   });
 }
 
@@ -250,7 +265,7 @@ function ChatBox({ messages }) {
       ref={listRef}
     >
       {messages.map((message, index) => (
-        <li key={index}>
+        <li key={index} onClick={() => speak(message.content)}>
           {message.role === "user" ? (
             <div className="flex flex-row-reverse grow">
               <div className="bg-blue-500 rounded-lg p-2 shadow max-w-full break-words whitespace-pre-wrap">
@@ -375,7 +390,9 @@ function Chat() {
   }
 
   function settings() {
-    const apiKey = prompt("Enter your OpenAI API key. Click 'Ok' to clear key.");
+    const apiKey = prompt(
+      "Enter your OpenAI API key. Click 'Ok' to clear key."
+    );
     if (apiKey === null) return;
     localStorage.setItem("OPENAI_API_KEY", apiKey);
     alert("API key saved!");
