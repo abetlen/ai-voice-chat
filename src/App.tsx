@@ -11,7 +11,9 @@ const DEFAULT_MESSAGES = [
   {
     role: "system",
     content:
-      "You are a conversational voice assistant. You answer user questions truthfully and politely.",
+      "You are a conversational voice assistant.\n"
+      + "You answer user questions truthfully and politely.\n"
+      + "Write messages phonetically to assist text-to-speech and use punctuation.\n"
   },
 ];
 
