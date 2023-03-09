@@ -67,6 +67,30 @@ function transcribeAudio(formData) {
     .then((data) => data.text.trim());
 }
 
+async function speak(text: string) {
+  const synth = window.speechSynthesis;
+  var timeout;
+  function timeoutFunction() {
+    synth.pause();
+    synth.resume();
+    timeout = setTimeout(timeoutFunction, 1000);
+  }
+  return new Promise<void>((resolve) => {
+    setTimeout(() => {
+      const allVoices = synth.getVoices();
+      synth.cancel();
+      timeout = setTimeout(timeoutFunction, 1000);
+      const utterance = new window.SpeechSynthesisUtterance(text);
+      utterance.voice = allVoices.find((v) => v.lang === "en-US");
+      utterance.onend = () => {
+        clearTimeout(timeout);
+        resolve();
+      };
+      synth.speak(utterance);
+    }, 100);
+  });
+}
+
 function generateAudio(text) {
   return fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_LABS_VOICE_ID}`,
@@ -86,6 +110,17 @@ function generateAudio(text) {
       }),
     }
   ).then((r) => r.blob());
+}
+
+async function playAudio(blob: Blob) {
+  return new Promise<void>((resolve) => {
+    const audio = new Audio();
+    audio.src = URL.createObjectURL(blob);
+    audio.onended = () => {
+      resolve();
+    };
+    audio.play();
+  });
 }
 
 function AudioRecorder({
@@ -199,38 +234,6 @@ function SpeechTranscriber({
   return <AudioRecorder onRecording={handleRecording} />;
 }
 
-function SpeechSynthesizer({ text }: { text?: string }) {
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-
-  function handleClick() {
-    if (audioRef.current) {
-      audioRef.current.play();
-    }
-  }
-
-  useEffect(() => {
-    if (text && text.length > 0) {
-      generateAudio(text).then((blob) => {
-        setAudioBlob(blob);
-      });
-    }
-  }, [text]);
-
-  useEffect(() => {
-    if (audioRef.current && audioBlob) {
-      audioRef.current.src = URL.createObjectURL(audioBlob);
-      audioRef.current.play();
-    }
-  }, [audioBlob]);
-
-  return (
-    <>
-      <audio ref={audioRef} />
-    </>
-  );
-}
-
 function ChatBox({ messages }) {
   const listRef = useRef<HTMLUListElement | null>(null);
   useEffect(() => {
@@ -241,7 +244,7 @@ function ChatBox({ messages }) {
   }, [messages]);
   return (
     <ul
-      className="py-4 px-2 bg-gray-200 rounded overflow-y-scroll grow h-full gap-2 flex flex-col shadow-inner"
+      className="p-2 bg-gray-200 rounded-lg overflow-y-scroll grow h-full gap-2 flex flex-col shadow-inner border-2 border-gray-200"
       ref={listRef}
     >
       {messages.map((message, index) => (
@@ -272,117 +275,14 @@ function ChatBox({ messages }) {
   );
 }
 
-function Chat() {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [messages, setMessages] = useLocalStorage("messages", DEFAULT_MESSAGES);
-  const [message, setMessage] = useLocalStorage("message", "");
-  const [lastAssistantMessage, setLastAssistantMessage] = useState("");
-
-  function sendMessage(e) {
-    e.preventDefault();
-    if (message === "") return;
-    setMessage("");
-    const newChat = [...messages, { role: "user", content: message }];
-    setMessages(newChat);
-    completeChat(newChat).then((res) => {
-      setMessages([...newChat, { role: "assistant", content: res }]);
-      setLastAssistantMessage(res);
-    });
-  }
-
-  function reset() {
-    setMessages(DEFAULT_MESSAGES);
-    setMessage("");
-  }
-
-  return (
-    <>
-      <div className="flex flex-col gap-2 grow">
-        <div className="flex justify-between">
-          <h1>AI Voice Chat</h1>
-          <button className="text-blue-400" onClick={reset}>
-            Reset
-          </button>
-        </div>
-        <ChatBox messages={messages} />
-        <form className="flex gap-2" onSubmit={sendMessage}>
-          <input
-            className="border border-gray-300 rounded p-2 grow outline-none appearance-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Type your message"
-            value={message}
-            ref={inputRef}
-            onChange={(e) => setMessage(e.target.value)}
-          />
-          <SpeechTranscriber
-            onTranscribed={(text) => {
-              setMessage(text);
-              if (inputRef.current) {
-                inputRef.current.focus();
-              }
-            }}
-          />
-          <button
-            type="submit"
-            className="bg-blue-500 text-white rounded p-2 disabled:bg-gray-300 disabled:text-gray-500"
-            disabled={message === ""}
-          >
-            Send
-          </button>
-        </form>
-        <SpeechSynthesizer text={lastAssistantMessage} />
-      </div>
-    </>
-  );
-}
-
-function useVoices() {
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-
-  useEffect(() => {
-    const synth = window.speechSynthesis;
-    synth.onvoiceschanged = () => {
-      setVoices(synth.getVoices());
-    };
-  }, []);
-
-  return voices;
-}
-
-function SpeechSynthesizerNative({ text }: { text?: string }) {
-  const voices = useVoices();
-  const [voice, setVoice] = useState<SpeechSynthesisVoice | null>(null);
-
-  useEffect(() => {
-    if (voices.length > 0) {
-      const voice = voices.find((v) => v.lang === "en-US");
-      if (voice) {
-        setVoice(voice);
-      } else {
-        setVoice(null);
-      }
-    } else {
-      setVoice(null);
-    }
-  }, [voices]);
-
-  function speak() {
-    if (!text || !voice) return;
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.voice = voice;
-    window.speechSynthesis.speak(utterance);
-  }
-
-  useEffect(() => {
-    speak();
-  }, [text, voice]);
-
-  return <></>;
-}
-
 const SpeechRecognition =
   window.SpeechRecognition || window.webkitSpeechRecognition;
 
-function SpeechTranscriberNative({ onTranscribed }: { onTranscribed?: (text: string) => void }) {
+function SpeechTranscriberNative({
+  onTranscribed,
+}: {
+  onTranscribed?: (text: string) => void;
+}) {
   const [enabled, setEnabled] = useState(false);
 
   useEffect(() => {
@@ -424,37 +324,46 @@ function SpeechTranscriberNative({ onTranscribed }: { onTranscribed?: (text: str
         <button
           onClick={() => setEnabled(true)}
           type="button"
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex justify-center items-center text-center"
+          className="bg-blue-500 hover:bg-blue-700 outline-none text-white focus:ring-2 focus:ring-red-blue-500 focus:ring-offset-2 font-bold p-4 rounded flex justify-center items-center text-center"
           title="Click to start recording"
         >
-          <MicrophoneIcon className="h-5 w-5" />
+          <MicrophoneIcon className="h-7 w-7" />
         </button>
       ) : (
         <button
           onClick={() => setEnabled(false)}
           type="button"
-          className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded flex justify-center items-center text-center"
+          className="bg-red-500 hover:bg-red-600 text-white outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 font-bold p-4 rounded flex "
           title="Click to stop recording"
         >
-          <StopIcon className="h-5 w-5" />
+          <div className="flex w-full h-full justify-center items-center text-center relative">
+            <StopIcon className="h-7 w-7 relative" />
+            <StopIcon className="h-7 w-7 absolute animate-ping" />
+          </div>
         </button>
       )}
     </>
   );
 }
 
-function ChatNative() {
+function Chat() {
   const [messages, setMessages] = useLocalStorage("messages", DEFAULT_MESSAGES);
-  const [lastAssistantMessage, setLastAssistantMessage] = useState("");
+  const [audioPlaying, setAudioPlaying] = useState(false);
 
-  function sendMessage(message) {
+  async function sendMessage(message) {
     if (message === "") return;
     const newChat = [...messages, { role: "user", content: message }];
     setMessages(newChat);
-    completeChat(newChat).then((res) => {
-      setMessages([...newChat, { role: "assistant", content: res }]);
-      setLastAssistantMessage(res);
-    });
+    const res = await completeChat(newChat);
+    if (res === null) {
+      return;
+    }
+    setMessages([...newChat, { role: "assistant", content: res }]);
+    setAudioPlaying(true);
+    await speak(res);
+    // uncomment to use the eleven labs api
+    // await playAudio(await generateAudio(res));
+    setAudioPlaying(false);
   }
 
   function reset() {
@@ -472,20 +381,31 @@ function ChatNative() {
 
   return (
     <>
-      <div className="flex flex-col gap-2 grow overflow-auto">
-        <div className="flex justify-between">
-          <h1>AI Voice Chat</h1>
-          <button className="text-blue-400" onClick={reset}>
-            Reset
-          </button>
+      <div className="flex flex-col gap-4 grow overflow-y-auto overflow-x-visible w-full p-1">
+        <div className="flex flex-wrap justify-between items-baseline gap-y-4 gap-x-4">
+          <h1 className="text-2xl font-bold">🤖 + 🎤 Chat</h1>
+          <div className="flex gap-4">
+            <button
+              className="text-blue-400 hover:text-blue-500"
+              onClick={settings}
+            >
+              Settings
+            </button>
+            <button
+              className="text-blue-400 hover:text-blue-500"
+              onClick={reset}
+            >
+              Clear Chat
+            </button>
+          </div>
         </div>
         <ChatBox messages={messages} />
         <SpeechTranscriberNative
           onTranscribed={(text) => {
+            if (audioPlaying) return;
             sendMessage(text);
           }}
         />
-        <SpeechSynthesizerNative text={lastAssistantMessage} />
       </div>
     </>
   );
@@ -494,9 +414,9 @@ function ChatNative() {
 export function App() {
   return (
     <>
-      <div className="flex justify-center bg-gray-200 p-0 sm:p-8 h-full">
-        <div className="max-w-prose bg-white p-2 sm:p-8 max-h-full rounded-lg shadow-lg flex flex-col gap-2 sm:gap-8">
-          <ChatNative />
+      <div className="flex justify-center bg-[conic-gradient(at_top_left,_var(--tw-gradient-stops))] from-green-300 via-blue-500 to-purple-600 p-0 sm:p-8 h-full">
+        <div className="max-w-prose w-full bg-white p-2 sm:py-8 sm:px-10 max-h-full rounded-none sm:rounded-2xl shadow-lg shadow-indigo-500/50 drop-shadow-xl flex flex-col gap-2 sm:gap-8">
+          <Chat />
         </div>
       </div>
     </>
