@@ -15,6 +15,9 @@ async function activate() {
 addEventListener('activate', e => e.waitUntil(activate()));
 
 addEventListener('fetch', function (event) {
+    if (!event.request.url.startsWith('http')) {
+        return;
+    }
     event.respondWith(async function () {
         try {
             var res = await fetch(event.request);
