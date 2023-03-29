@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 
 import { MicrophoneIcon, StopIcon } from "@heroicons/react/24/solid";
+import { fetchEventSource } from "@microsoft/fetch-event-source";
+import { Transition } from "@headlessui/react";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -20,7 +22,12 @@ const DEFAULT_MESSAGES = [
 function useLocalStorage(key, defaultValue) {
   const [value, setValue] = useState(() => {
     const item = localStorage.getItem(key);
-    return item ? JSON.parse(item) : defaultValue;
+    try {
+      return item ? JSON.parse(item) : defaultValue;
+    } catch (e) {
+      console.error(e);
+      return defaultValue;
+    }
   });
   const update = useCallback(
     (newValue) => {
@@ -55,6 +62,42 @@ function completeChat(history) {
       );
       return null;
     });
+}
+
+async function completeChatStreaming(history, onMessage?: (string) => void) {
+  const apiKey = OPENAI_API_KEY || localStorage.getItem("OPENAI_API_KEY");
+
+  return fetchEventSource("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-3.5-turbo",
+      stream: true,
+      messages: history,
+    }),
+    onmessage(event) {
+      const { data } = event;
+      if (data === "[DONE]") {
+        return;
+      }
+      const {
+        choices: [
+          {
+            delta: { content },
+          },
+        ],
+      } = JSON.parse(data);
+      if (!content) {
+        return;
+      }
+      if (onMessage) {
+        onMessage(content);
+      }
+    },
+  });
 }
 
 function transcribeAudio(formData) {
@@ -94,6 +137,8 @@ async function speak(text: string) {
       timeout = setTimeout(timeoutFunction, PAUSE_DELAY_MS);
       const utterance = new window.SpeechSynthesisUtterance(text);
       utterance.voice = allVoices.find((v) => v.lang === "en-US");
+      utterance.rate = 1.1;
+      utterance.pitch = 0.9;
       utterance.onend = () => {
         clearTimeout(timeout);
         resolve();
@@ -246,14 +291,14 @@ function SpeechTranscriber({
   return <AudioRecorder onRecording={handleRecording} />;
 }
 
-function ChatBox({ messages }) {
+function ChatBox({ messages, loading = false }) {
   const listRef = useRef<HTMLUListElement | null>(null);
   useEffect(() => {
     if (listRef.current === null) {
       return;
     }
     listRef.current.scrollTop = listRef.current.scrollHeight;
-  }, [messages]);
+  }, [messages, loading]);
   return (
     <ul
       className="p-2 bg-gray-200 rounded-lg overflow-y-scroll grow h-full gap-2 flex flex-col shadow-inner border-2 border-gray-200"
@@ -283,6 +328,27 @@ function ChatBox({ messages }) {
           )}
         </li>
       ))}
+      {loading && (
+        <Transition
+          show={loading}
+          appear={true}
+          enter="transition-opacity duration-300"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="transition-opacity duration-0"
+          leaveFrom="opacity-0"
+          leaveTo="opacity-0"
+        >
+          <li>
+            <div className="flex flex-row grow">
+              <div className="bg-white rounded-lg p-2 shadow max-w-full break-words whitespace-pre-wrap flex items-baseline gap-2">
+                <div className="animate-spin rounded-full h-3 w-3 border-t-2 border-b-2 border-gray-900"></div>
+                <p className="text-gray-600 italic">Generating response...</p>
+              </div>
+            </div>
+          </li>
+        </Transition>
+      )}
     </ul>
   );
 }
@@ -361,18 +427,31 @@ function SpeechTranscriberNative({
 function Chat() {
   const [messages, setMessages] = useLocalStorage("messages", DEFAULT_MESSAGES);
   const [audioPlaying, setAudioPlaying] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   async function sendMessage(message) {
     if (message === "") return;
     const newChat = [...messages, { role: "user", content: message }];
     setMessages(newChat);
-    const res = await completeChat(newChat);
-    if (res === null) {
-      return;
-    }
-    setMessages([...newChat, { role: "assistant", content: res }]);
+    setLoading(true);
+    let result = "";
+    await completeChatStreaming(newChat, (delta) => {
+      setMessages((messages) => {
+        const lastMessage = messages[messages.length - 1];
+        result += delta;
+        if (lastMessage.role !== "assistant") {
+          setLoading(false);
+          return [...messages, { role: "assistant", content: delta }];
+        } else {
+          return [
+            ...messages.slice(0, -1),
+            { ...lastMessage, content: lastMessage.content + delta },
+          ];
+        }
+      });
+    });
     setAudioPlaying(true);
-    await speak(res);
+    await speak(result);
     // uncomment to use the eleven labs api
     // await playAudio(await generateAudio(res));
     setAudioPlaying(false);
@@ -413,7 +492,7 @@ function Chat() {
             </button>
           </div>
         </div>
-        <ChatBox messages={messages} />
+        <ChatBox messages={messages} loading={loading} />
         <SpeechTranscriberNative
           onTranscribed={(text) => {
             if (audioPlaying) return;
