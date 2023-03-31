@@ -28,8 +28,16 @@ function useLocalStorage(key, defaultValue) {
   });
   const update = useCallback(
     (newValue) => {
-      setValue(newValue);
-      localStorage.setItem(key, JSON.stringify(newValue));
+      if (typeof newValue === "function") {
+        setValue((oldValue) => {
+          const nextValue = newValue(oldValue);
+          localStorage.setItem(key, JSON.stringify(nextValue));
+          return nextValue;
+        });
+      } else {
+        setValue(newValue);
+        localStorage.setItem(key, JSON.stringify(newValue));
+      }
     },
     [key]
   );
