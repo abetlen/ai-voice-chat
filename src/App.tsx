@@ -12,10 +12,7 @@ const ELEVEN_LABS_VOICE_ID = process.env.ELEVEN_LABS_VOICE_ID;
 const DEFAULT_MESSAGES = [
   {
     role: "system",
-    content:
-      "You are a conversational voice assistant.\n" +
-      "You answer user questions truthfully and politely.\n" +
-      "Write messages phonetically to assist text-to-speech and use punctuation.\n",
+    content: "You are a helpful assistant.",
   },
 ];
 
