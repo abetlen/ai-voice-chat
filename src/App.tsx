@@ -88,18 +88,24 @@ async function completeChatStreaming(history, onMessage?: (string) => void) {
       if (data === "[DONE]") {
         return;
       }
-      const {
-        choices: [
-          {
-            delta: { content },
-          },
-        ],
-      } = JSON.parse(data);
-      if (!content) {
+      try {
+        const {
+          choices: [
+            {
+              delta: { content },
+            },
+          ],
+        } = JSON.parse(data);
+        if (!content) {
+          return;
+        }
+        if (onMessage) {
+          onMessage(content);
+        }
+      } catch (e) {
+        console.error(e);
+        console.log(data);
         return;
-      }
-      if (onMessage) {
-        onMessage(content);
       }
     },
   });
